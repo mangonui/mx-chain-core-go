@@ -2,6 +2,8 @@ package core
 
 import (
 	"crypto/rand"
+	"fmt"
+	"io"
 	"os"
 )
 
@@ -20,8 +22,14 @@ func EmptyChannel(ch chan bool) int {
 
 // UniqueIdentifier returns a unique string identifier of 32 bytes
 func UniqueIdentifier() string {
+	return uniqueIdentifierFromReader(rand.Reader)
+}
+
+func uniqueIdentifierFromReader(reader io.Reader) string {
 	buff := make([]byte, 32)
-	_, _ = rand.Read(buff)
+	if _, err := io.ReadFull(reader, buff); err != nil {
+		panic(fmt.Errorf("cannot generate unique identifier: %w", err))
+	}
 	return string(buff)
 }
 
