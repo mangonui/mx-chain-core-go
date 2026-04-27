@@ -1,13 +1,21 @@
 package core
 
 import (
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+type failingEntropyReader struct{}
+
+func (failingEntropyReader) Read(_ []byte) (int, error) {
+	return 0, errors.New("entropy unavailable")
+}
 
 func TestEmptyChannelShouldWorkOnBufferedChannel(t *testing.T) {
 	ch := make(chan bool, 10)
@@ -66,6 +74,18 @@ func TestEmptyChannelShouldWorkOnNotBufferedChannel(t *testing.T) {
 
 	assert.Equal(t, 0, len(ch))
 	assert.Equal(t, int32(numConcurrentWrites), atomic.LoadInt32(&readsCnt))
+}
+
+func TestUniqueIdentifier_ShouldPanicOnEntropyFailure(t *testing.T) {
+	require.Panics(t, func() {
+		_ = uniqueIdentifierFromReader(failingEntropyReader{})
+	})
+}
+
+func TestUniqueIdentifier_ShouldReturn32Bytes(t *testing.T) {
+	identifier := UniqueIdentifier()
+
+	require.Len(t, identifier, 32)
 }
 
 func TestGetPBFTThreshold_ShouldWork(t *testing.T) {

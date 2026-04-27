@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/pelletier/go-toml"
 )
@@ -180,11 +181,14 @@ func LoadSkPkFromPemFile(relativePath string, skIndex int) ([]byte, string, erro
 
 	blockType := blkRecovered.Type
 
-	if strings.Index(blockType, pemPkHeader) != 0 {
+	if !strings.HasPrefix(blockType, pemPkHeader) {
 		return nil, "", fmt.Errorf("%w missing '%s' in block type", ErrPemFileIsInvalid, pemPkHeader)
 	}
 
 	blockTypeString := blockType[len(pemPkHeader):]
+	if !isValidPemPublicKeySuffix(blockTypeString) {
+		return nil, "", fmt.Errorf("%w invalid public key suffix in block type", ErrPemFileIsInvalid)
+	}
 
 	return blkRecovered.Bytes, blockTypeString, nil
 }
@@ -224,17 +228,33 @@ func LoadAllKeysFromPemFile(relativePath string) ([][]byte, []string, error) {
 		buff = bytes.TrimSpace(buff)
 
 		blockType := blkRecovered.Type
-		if strings.Index(blockType, pemPkHeader) != 0 {
+		if !strings.HasPrefix(blockType, pemPkHeader) {
 			return nil, nil, fmt.Errorf("%w missing '%s' in block type", ErrPemFileIsInvalid, pemPkHeader)
 		}
 
 		blockTypeString := blockType[len(pemPkHeader):]
+		if !isValidPemPublicKeySuffix(blockTypeString) {
+			return nil, nil, fmt.Errorf("%w invalid public key suffix in block type", ErrPemFileIsInvalid)
+		}
 
 		privateKeys = append(privateKeys, blkRecovered.Bytes)
 		publicKeys = append(publicKeys, blockTypeString)
 	}
 
 	return privateKeys, publicKeys, nil
+}
+
+func isValidPemPublicKeySuffix(suffix string) bool {
+	if suffix == "" || strings.TrimSpace(suffix) != suffix {
+		return false
+	}
+	for _, char := range suffix {
+		if unicode.IsControl(char) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // SaveSkToPemFile saves secret key bytes in the file

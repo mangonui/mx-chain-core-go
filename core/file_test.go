@@ -225,6 +225,42 @@ func TestLoadSkPkFromPemFile(t *testing.T) {
 		assert.Empty(t, dataPk)
 		assert.True(t, errors.Is(err, core.ErrPemFileIsInvalid))
 	})
+	t.Run("empty public key suffix should error", func(t *testing.T) {
+		t.Parallel()
+
+		fileName := filepath.Join(t.TempDir(), "testFile")
+		file, err := os.Create(fileName)
+		assert.Nil(t, err)
+
+		_, _ = file.WriteString("-----BEGIN PRIVATE KEY for -----\n")
+		_, _ = file.WriteString("ChQeKDI8\n")
+		_, _ = file.WriteString("-----END PRIVATE KEY for -----")
+		_ = file.Close()
+
+		dataSk, dataPk, err := core.LoadSkPkFromPemFile(fileName, 0)
+
+		assert.Nil(t, dataSk)
+		assert.Empty(t, dataPk)
+		assert.True(t, errors.Is(err, core.ErrPemFileIsInvalid))
+	})
+	t.Run("control character in public key suffix should error", func(t *testing.T) {
+		t.Parallel()
+
+		fileName := filepath.Join(t.TempDir(), "testFile")
+		file, err := os.Create(fileName)
+		assert.Nil(t, err)
+
+		_, _ = file.WriteString("-----BEGIN PRIVATE KEY for ABCD\t-----\n")
+		_, _ = file.WriteString("ChQeKDI8\n")
+		_, _ = file.WriteString("-----END PRIVATE KEY for ABCD\t-----")
+		_ = file.Close()
+
+		dataSk, dataPk, err := core.LoadSkPkFromPemFile(fileName, 0)
+
+		assert.Nil(t, dataSk)
+		assert.Empty(t, dataPk)
+		assert.True(t, errors.Is(err, core.ErrPemFileIsInvalid))
+	})
 	t.Run("invalid index should error", func(t *testing.T) {
 		t.Parallel()
 
@@ -314,6 +350,42 @@ func TestLoadAllKeysFromPemFile(t *testing.T) {
 		assert.Nil(t, err)
 
 		_, _ = file.WriteString("data")
+
+		privateKeys, publicKeys, err := core.LoadAllKeysFromPemFile(fileName)
+
+		assert.Nil(t, privateKeys)
+		assert.Empty(t, publicKeys)
+		assert.True(t, errors.Is(err, core.ErrPemFileIsInvalid))
+	})
+	t.Run("empty public key suffix should error", func(t *testing.T) {
+		t.Parallel()
+
+		fileName := filepath.Join(t.TempDir(), "testFile")
+		file, err := os.Create(fileName)
+		assert.Nil(t, err)
+
+		_, _ = file.WriteString("-----BEGIN PRIVATE KEY for -----\n")
+		_, _ = file.WriteString("ChQeKDI8\n")
+		_, _ = file.WriteString("-----END PRIVATE KEY for -----")
+		_ = file.Close()
+
+		privateKeys, publicKeys, err := core.LoadAllKeysFromPemFile(fileName)
+
+		assert.Nil(t, privateKeys)
+		assert.Empty(t, publicKeys)
+		assert.True(t, errors.Is(err, core.ErrPemFileIsInvalid))
+	})
+	t.Run("control character in public key suffix should error", func(t *testing.T) {
+		t.Parallel()
+
+		fileName := filepath.Join(t.TempDir(), "testFile")
+		file, err := os.Create(fileName)
+		assert.Nil(t, err)
+
+		_, _ = file.WriteString("-----BEGIN PRIVATE KEY for ABCD\t-----\n")
+		_, _ = file.WriteString("ChQeKDI8\n")
+		_, _ = file.WriteString("-----END PRIVATE KEY for ABCD\t-----")
+		_ = file.Close()
 
 		privateKeys, publicKeys, err := core.LoadAllKeysFromPemFile(fileName)
 
