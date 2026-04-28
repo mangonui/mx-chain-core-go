@@ -61,10 +61,11 @@ func (code DenialCode) IsKnown() bool {
 	return false
 }
 
-// IsValid reports whether code is a valid canonical value, including the
-// explicit unknown sentinel. The empty string is never valid.
+// IsValid reports whether code is one of the concrete canonical denial values.
+// The explicit unknown sentinel is a normalization result, not a storable
+// denial reason.
 func (code DenialCode) IsValid() bool {
-	return code == DenialUnknown || code.IsKnown()
+	return code.IsKnown()
 }
 
 // NormalizeDenialCode canonicalizes a raw denial code string. Unknown non-empty
@@ -77,12 +78,12 @@ func NormalizeDenialCode(raw string) DenialCode {
 	}
 
 	code := DenialCode(trimmed)
-	if code.IsValid() {
+	if code.IsKnown() {
 		return code
 	}
 
 	upper := DenialCode(strings.ToUpper(trimmed))
-	if upper.IsValid() {
+	if upper.IsKnown() {
 		return upper
 	}
 

@@ -25,8 +25,8 @@ func TestDenialCodes_ValidityAndNormalization(t *testing.T) {
 	if DenialCode("").IsValid() {
 		t.Fatalf("empty denial code must be invalid")
 	}
-	if !DenialUnknown.IsValid() {
-		t.Fatalf("unknown sentinel must be valid")
+	if DenialUnknown.IsValid() {
+		t.Fatalf("unknown sentinel must not be valid for storage")
 	}
 	if DenialUnknown.IsKnown() {
 		t.Fatalf("unknown sentinel must not be a concrete known denial")
