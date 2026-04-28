@@ -44,10 +44,16 @@ func FileExists(path string) bool {
 
 // GetPBFTThreshold returns the pBFT threshold for a given consensus size
 func GetPBFTThreshold(consensusSize int) int {
+	if consensusSize <= 0 {
+		return 0
+	}
 	return consensusSize*2/3 + 1
 }
 
 // GetPBFTFallbackThreshold returns the pBFT fallback threshold for a given consensus size
 func GetPBFTFallbackThreshold(consensusSize int) int {
+	if consensusSize <= 0 {
+		return 0
+	}
 	return consensusSize*1/2 + 1
 }

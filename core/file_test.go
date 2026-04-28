@@ -473,13 +473,28 @@ func TestSaveSkToPemFile(t *testing.T) {
 		err = core.SaveSkToPemFile(file, "data", skBytes)
 		assert.Nil(t, err)
 	})
+	t.Run("invalid identifier should error", func(t *testing.T) {
+		t.Parallel()
+
+		fileName := filepath.Join(t.TempDir(), "testFile")
+		file, err := os.Create(fileName)
+		assert.Nil(t, err)
+		defer func() {
+			_ = file.Close()
+		}()
+
+		err = core.SaveSkToPemFile(file, " bad ", []byte{10, 20, 30})
+		assert.ErrorIs(t, err, core.ErrPemFileIsInvalid)
+	})
 }
 
 func TestCreateFile(t *testing.T) {
 	t.Parallel()
 
+	tempDir := t.TempDir()
+	targetDir := filepath.Join(tempDir, "subdir")
 	arg := core.ArgCreateFileArgument{
-		Directory:     "subdir",
+		Directory:     targetDir,
 		Prefix:        "prefix",
 		FileExtension: "extension",
 	}
@@ -490,8 +505,7 @@ func TestCreateFile(t *testing.T) {
 
 	assert.True(t, strings.Contains(file.Name(), arg.Prefix))
 	assert.True(t, strings.Contains(file.Name(), arg.FileExtension))
-	if _, errF := os.Stat(file.Name()); errF == nil {
-		_ = os.Remove(file.Name())
-		_ = os.Remove(arg.Directory)
-	}
+	dirInfo, err := os.Stat(targetDir)
+	assert.Nil(t, err)
+	assert.Equal(t, os.FileMode(0700), dirInfo.Mode().Perm())
 }

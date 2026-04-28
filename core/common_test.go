@@ -89,6 +89,8 @@ func TestUniqueIdentifier_ShouldReturn32Bytes(t *testing.T) {
 }
 
 func TestGetPBFTThreshold_ShouldWork(t *testing.T) {
+	assert.Equal(t, 0, GetPBFTThreshold(0))
+	assert.Equal(t, 0, GetPBFTThreshold(-1))
 	assert.Equal(t, 2, GetPBFTThreshold(2))
 	assert.Equal(t, 3, GetPBFTThreshold(3))
 	assert.Equal(t, 3, GetPBFTThreshold(4))
@@ -98,6 +100,8 @@ func TestGetPBFTThreshold_ShouldWork(t *testing.T) {
 }
 
 func TestGetPBFTFallbackThreshold_ShouldWork(t *testing.T) {
+	assert.Equal(t, 0, GetPBFTFallbackThreshold(0))
+	assert.Equal(t, 0, GetPBFTFallbackThreshold(-1))
 	assert.Equal(t, 2, GetPBFTFallbackThreshold(2))
 	assert.Equal(t, 2, GetPBFTFallbackThreshold(3))
 	assert.Equal(t, 3, GetPBFTFallbackThreshold(4))

@@ -72,6 +72,9 @@ func LoadTomlFileToMap(relativePath string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		_ = f.Close()
+	}()
 
 	fileinfo, err := f.Stat()
 	if err != nil {
@@ -85,10 +88,6 @@ func LoadTomlFileToMap(relativePath string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	defer func() {
-		_ = f.Close()
-	}()
 
 	loadedTree, err := toml.Load(string(buffer))
 	if err != nil {
@@ -121,7 +120,7 @@ func CreateFile(arg ArgCreateFileArgument) (*os.File, error) {
 		return nil, err
 	}
 
-	err = os.MkdirAll(absPath, os.ModePerm)
+	err = os.MkdirAll(absPath, 0700)
 	if err != nil {
 		return nil, err
 	}
@@ -261,6 +260,9 @@ func isValidPemPublicKeySuffix(suffix string) bool {
 func SaveSkToPemFile(file *os.File, identifier string, skBytes []byte) error {
 	if file == nil {
 		return ErrNilFile
+	}
+	if !isValidPemPublicKeySuffix(identifier) {
+		return fmt.Errorf("%w invalid public key suffix in block type", ErrPemFileIsInvalid)
 	}
 
 	blk := pem.Block{
