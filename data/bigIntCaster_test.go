@@ -78,6 +78,18 @@ func TestBigIntCaster_MarshalToBadBuffer(t *testing.T) {
 	assert.Equal(t, int64(-2020), v0.Int64())
 }
 
+func TestBigIntCaster_MarshalToNilAndEmptyBufferShouldErr(t *testing.T) {
+	caster := &BigIntCaster{}
+
+	dataLen, err := caster.MarshalTo(nil, nil)
+	assert.Equal(t, ErrInvalidValue, err)
+	assert.Equal(t, 0, dataLen)
+
+	dataLen, err = caster.MarshalTo(nil, []byte{})
+	assert.Equal(t, ErrInvalidValue, err)
+	assert.Equal(t, 0, dataLen)
+}
+
 func TestBigIntCaster_BadUnmarshal(t *testing.T) {
 	t.Run("Nil buffer", func(t *testing.T) {
 		caster := &BigIntCaster{}

@@ -80,7 +80,7 @@ func (tx *Transaction) GetDataForSigning(encoder data.Encoder, marshaller data.M
 
 	ftx := &FrontendTransaction{
 		Nonce:            tx.Nonce,
-		Value:            tx.Value.String(),
+		Value:            tx.valueForSigning(),
 		Receiver:         receiverAddr,
 		Sender:           senderAddr,
 		GasPrice:         tx.GasPrice,
@@ -124,6 +124,14 @@ func (tx *Transaction) GetDataForSigning(encoder data.Encoder, marshaller data.M
 	ftxHash := hasher.Compute(string(ftxBytes))
 
 	return ftxHash, nil
+}
+
+func (tx *Transaction) valueForSigning() string {
+	if tx.Value == nil {
+		return "0"
+	}
+
+	return tx.Value.String()
 }
 
 // HasOptionGuardianSet returns true if the guarded transaction option is set

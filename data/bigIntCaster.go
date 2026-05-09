@@ -29,6 +29,9 @@ func (c *BigIntCaster) Size(a *big.Int) int {
 
 // MarshalTo marshals the first parameter to the second one
 func (c *BigIntCaster) MarshalTo(a *big.Int, buf []byte) (int, error) {
+	if len(buf) == 0 {
+		return 0, ErrInvalidValue
+	}
 	if a == nil {
 		buf[0] = 0
 		return 1, nil
