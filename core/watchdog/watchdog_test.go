@@ -68,6 +68,30 @@ func TestWatchdog_SetDefault(t *testing.T) {
 	assert.True(t, addCalled)
 }
 
+func TestWatchdog_SetDefaultDoesNotBlockWhenChannelIsFull(t *testing.T) {
+	t.Parallel()
+
+	alarm := "testComponent"
+	channel := make(chan endProcess.ArgEndProcess, 1)
+	channel <- endProcess.ArgEndProcess{}
+	done := make(chan struct{})
+	alarmScheduler := &mock.AlarmSchedulerStub{
+		AddCalled: func(f func(alarmID string), duration time.Duration, s string) {
+			f(alarm)
+			close(done)
+		},
+	}
+	w, _ := watchdog.NewWatchdog(alarmScheduler, channel, &mock.LoggerMock{})
+
+	w.SetDefault(time.Second, alarm)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		assert.Fail(t, "watchdog expiry blocked on full channel")
+	}
+}
+
 func TestWatchdog_Stop(t *testing.T) {
 	t.Parallel()
 

@@ -96,8 +96,8 @@ func TestTimeAccumulator_EvictionShouldStopWhenCloseIsCalled(t *testing.T) {
 	ch := ta.OutputChannel()
 	items, ok := <-ch
 
-	assert.False(t, ok)
-	assert.Equal(t, 0, len(items))
+	assert.True(t, ok)
+	assert.Equal(t, 1, len(items))
 }
 
 func TestTimeAccumulator_EvictionDuringWaitShouldStopWhenCloseIsCalled(t *testing.T) {
@@ -113,8 +113,8 @@ func TestTimeAccumulator_EvictionDuringWaitShouldStopWhenCloseIsCalled(t *testin
 	ch := ta.OutputChannel()
 	items, ok := <-ch
 
-	assert.False(t, ok)
-	assert.Equal(t, 0, len(items))
+	assert.True(t, ok)
+	assert.Equal(t, 1, len(items))
 }
 
 func TestTimeAccumulator_EvictionShouldPreserveTheOrder(t *testing.T) {

@@ -294,6 +294,32 @@ func TestTransaction_GetDataForSigningShouldWork(t *testing.T) {
 	})
 }
 
+func TestTransaction_GetDataForSigningNilValueUsesZero(t *testing.T) {
+	t.Parallel()
+
+	tx := &transaction.Transaction{}
+	var signedValue string
+
+	buff, err := tx.GetDataForSigning(
+		&mock.PubkeyConverterStub{
+			EncodeCalled: func(pkBytes []byte) (string, error) {
+				return "", nil
+			},
+		},
+		&mock.MarshalizerStub{
+			MarshalCalled: func(obj interface{}) (bytes []byte, err error) {
+				signedValue = obj.(*transaction.FrontendTransaction).Value
+				return make([]byte, 0), nil
+			},
+		},
+		&mock.HasherMock{},
+	)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, buff)
+	assert.Equal(t, "0", signedValue)
+}
+
 func TestTransaction_CheckIntegrityShouldWork(t *testing.T) {
 	t.Parallel()
 

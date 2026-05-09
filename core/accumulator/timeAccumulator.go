@@ -17,7 +17,7 @@ var _ core.Accumulator = (*timeAccumulator)(nil)
 const minimumAllowedTime = time.Millisecond * 10
 
 // timeAccumulator is a structure that is able to accumulate data and will try to write on the output channel
-//once per provided interval
+// once per provided interval
 type timeAccumulator struct {
 	cancel         func()
 	maxAllowedTime time.Duration
@@ -48,7 +48,7 @@ func NewTimeAccumulator(maxAllowedTime time.Duration, maxOffset time.Duration, l
 	ta := &timeAccumulator{
 		cancel:         cancel,
 		maxAllowedTime: maxAllowedTime,
-		output:         make(chan []interface{}),
+		output:         make(chan []interface{}, 1),
 		maxOffset:      maxOffset,
 		log:            logger,
 	}
@@ -123,8 +123,27 @@ func (ta *timeAccumulator) doEviction(ctx context.Context) bool {
 
 // Close stops the time accumulator's eviction loop and closes the output chan
 func (ta *timeAccumulator) Close() error {
+	ta.flushOnClose()
 	ta.cancel()
 	return nil
+}
+
+func (ta *timeAccumulator) flushOnClose() {
+	ta.mut.Lock()
+	if len(ta.data) == 0 {
+		ta.mut.Unlock()
+		return
+	}
+	tempData := make([]interface{}, len(ta.data))
+	copy(tempData, ta.data)
+	ta.data = nil
+	ta.mut.Unlock()
+
+	select {
+	case ta.output <- tempData:
+	default:
+		ta.log.Warn("could not flush accumulator data on close; output channel is full")
+	}
 }
 
 // IsInterfaceNil returns true if there is no value under the interface

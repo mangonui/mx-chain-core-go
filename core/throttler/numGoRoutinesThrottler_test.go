@@ -1,6 +1,8 @@
 package throttler_test
 
 import (
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/multiversx/mx-chain-core-go/core"
@@ -91,4 +93,28 @@ func TestNumGoRoutinesThrottler_CanProcessMessageCounterIsMaxLessOneFromEndProce
 	nt.EndProcessing()
 
 	assert.True(t, nt.CanProcess())
+}
+
+func TestNumGoRoutinesThrottler_TryStartProcessingShouldNotExceedMax(t *testing.T) {
+	t.Parallel()
+
+	const max = int32(7)
+	const workers = 100
+	nt, _ := throttler.NewNumGoRoutinesThrottler(max)
+
+	var started int32
+	wg := sync.WaitGroup{}
+	wg.Add(workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+			if nt.TryStartProcessing() {
+				atomic.AddInt32(&started, 1)
+			}
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, max, started)
+	assert.False(t, nt.CanProcess())
 }

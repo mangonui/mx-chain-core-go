@@ -35,6 +35,19 @@ func (ngrt *NumGoRoutinesThrottler) StartProcessing() {
 	atomic.AddInt32(&ngrt.counter, 1)
 }
 
+// TryStartProcessing increments the counter only if capacity is available.
+func (ngrt *NumGoRoutinesThrottler) TryStartProcessing() bool {
+	for {
+		current := atomic.LoadInt32(&ngrt.counter)
+		if current >= ngrt.max {
+			return false
+		}
+		if atomic.CompareAndSwapInt32(&ngrt.counter, current, current+1) {
+			return true
+		}
+	}
+}
+
 // EndProcessing will decrement current counter
 func (ngrt *NumGoRoutinesThrottler) EndProcessing() {
 	atomic.AddInt32(&ngrt.counter, -1)
