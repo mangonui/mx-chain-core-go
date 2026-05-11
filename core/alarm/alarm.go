@@ -11,6 +11,7 @@ type eventType int
 const (
 	add eventType = iota
 	cancel
+	reset
 )
 
 const timeoutNoAlarm = time.Second * 100000
@@ -67,16 +68,12 @@ func (as *alarmScheduler) Add(callback func(alarmID string), duration time.Durat
 	as.event <- evt
 }
 
-// Cancel cancels a scheduled alarm
+// Cancel cancels a scheduled alarm.
+// The cancel event is always sent into the event loop and the loop decides
+// whether the alarm exists, eliminating the TOCTOU window between the prior
+// map pre-check and the channel send. handleCancel safely no-ops via map
+// delete when the alarm is absent.
 func (as *alarmScheduler) Cancel(alarmID string) {
-	as.mutScheduledAlarms.RLock()
-	_, ok := as.scheduledAlarms[alarmID]
-	as.mutScheduledAlarms.RUnlock()
-
-	if !ok {
-		return
-	}
-
 	evt := alarmEvent{
 		alarmID: alarmID,
 		alarm:   nil,
@@ -113,6 +110,8 @@ func (as *alarmScheduler) handleEvent(evt alarmEvent, elapsedSinceLastUpdate tim
 		waitTime = as.handleAdd(elapsedSinceLastUpdate, evt.alarm, evt.alarmID)
 	case cancel:
 		waitTime = as.handleCancel(elapsedSinceLastUpdate, evt.alarmID)
+	case reset:
+		waitTime = as.handleReset(elapsedSinceLastUpdate, evt.alarmID)
 	default:
 		waitTime = as.updateAlarms(elapsedSinceLastUpdate)
 	}
@@ -146,6 +145,21 @@ func (as *alarmScheduler) handleCancel(elapsedSinceLastUpdate time.Duration, ala
 	return as.updateAlarms(elapsedSinceLastUpdate)
 }
 
+// handleReset restarts the alarm's countdown to its initial duration.
+// The alarm's remainingDuration is pre-inflated by elapsedSinceLastUpdate so
+// that the subsequent updateAlarms decrement leaves it at exactly
+// initialDuration — mirroring handleAdd's "insert after updateAlarms" trick.
+// If the alarm is not present the reset is a no-op.
+func (as *alarmScheduler) handleReset(elapsedSinceLastUpdate time.Duration, alarmID string) time.Duration {
+	as.mutScheduledAlarms.Lock()
+	if alarm, ok := as.scheduledAlarms[alarmID]; ok {
+		alarm.remainingDuration = alarm.initialDuration + elapsedSinceLastUpdate
+	}
+	as.mutScheduledAlarms.Unlock()
+
+	return as.updateAlarms(elapsedSinceLastUpdate)
+}
+
 // updateAlarms updates the remaining duration for all alarms and returns the remaining minimum duration
 func (as *alarmScheduler) updateAlarms(elapsed time.Duration) time.Duration {
 	minDuration := timeoutNoAlarm
@@ -173,28 +187,20 @@ func (as *alarmScheduler) Close() {
 	as.cancelFunc()
 }
 
-// Reset resets the alarm with the given id
+// Reset resets the alarm with the given id.
+// The reset event is processed atomically inside the event loop, so the
+// (alarmID -> alarmItem) lookup and the timer restart happen under the same
+// serialization point as Add and Cancel. This eliminates the previous
+// TOCTOU race where the alarm could expire (or be replaced) between the
+// outside-the-loop map read and the channel sends.
 func (as *alarmScheduler) Reset(alarmID string) {
-	as.mutScheduledAlarms.RLock()
-	alarm, ok := as.scheduledAlarms[alarmID]
-	if !ok {
-		as.mutScheduledAlarms.RUnlock()
-		return
-	}
-
-	callback := alarm.callback
-	duration := alarm.initialDuration
-	as.mutScheduledAlarms.RUnlock()
-
 	evt := alarmEvent{
 		alarmID: alarmID,
 		alarm:   nil,
-		event:   cancel,
+		event:   reset,
 	}
 
 	as.event <- evt
-
-	as.Add(callback, duration, alarmID)
 }
 
 // IsInterfaceNil returns true if interface is nil
