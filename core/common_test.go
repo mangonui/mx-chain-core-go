@@ -76,15 +76,23 @@ func TestEmptyChannelShouldWorkOnNotBufferedChannel(t *testing.T) {
 	assert.Equal(t, int32(numConcurrentWrites), atomic.LoadInt32(&readsCnt))
 }
 
-func TestUniqueIdentifier_ShouldPanicOnEntropyFailure(t *testing.T) {
-	require.Panics(t, func() {
-		_ = uniqueIdentifierFromReader(failingEntropyReader{})
-	})
+func TestUniqueIdentifier_ShouldReturnErrorOnEntropyFailure(t *testing.T) {
+	identifier, err := uniqueIdentifierFromReader(failingEntropyReader{})
+
+	require.Error(t, err)
+	require.Empty(t, identifier)
 }
 
 func TestUniqueIdentifier_ShouldReturn32Bytes(t *testing.T) {
 	identifier := UniqueIdentifier()
 
+	require.Len(t, identifier, 32)
+}
+
+func TestUniqueIdentifierWithError_ShouldReturn32Bytes(t *testing.T) {
+	identifier, err := UniqueIdentifierWithError()
+
+	require.NoError(t, err)
 	require.Len(t, identifier, 32)
 }
 

@@ -2,7 +2,6 @@ package core
 
 import (
 	"crypto/rand"
-	"fmt"
 	"io"
 	"os"
 )
@@ -22,15 +21,25 @@ func EmptyChannel(ch chan bool) int {
 
 // UniqueIdentifier returns a unique string identifier of 32 bytes
 func UniqueIdentifier() string {
+	identifier, err := UniqueIdentifierWithError()
+	if err != nil {
+		return ""
+	}
+
+	return identifier
+}
+
+// UniqueIdentifierWithError returns a unique string identifier of 32 bytes.
+func UniqueIdentifierWithError() (string, error) {
 	return uniqueIdentifierFromReader(rand.Reader)
 }
 
-func uniqueIdentifierFromReader(reader io.Reader) string {
+func uniqueIdentifierFromReader(reader io.Reader) (string, error) {
 	buff := make([]byte, 32)
 	if _, err := io.ReadFull(reader, buff); err != nil {
-		panic(fmt.Errorf("cannot generate unique identifier: %w", err))
+		return "", err
 	}
-	return string(buff)
+	return string(buff), nil
 }
 
 // FileExists returns true if the file at the given path exists

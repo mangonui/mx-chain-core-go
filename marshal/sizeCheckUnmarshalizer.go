@@ -39,11 +39,25 @@ func (scu *sizeCheckUnmarshalizer) Unmarshal(obj interface{}, buff []byte) error
 		objSize = result.Size()
 	}
 
-	maxSize := objSize + objSize*int(scu.acceptedDelta)/100
+	maxSize := checkedAcceptedMaxSize(objSize, scu.acceptedDelta)
 	if len(buff) > maxSize {
 		return ErrUnmarshallingBadSize
 	}
 	return nil
+}
+
+func checkedAcceptedMaxSize(objSize int, acceptedDelta uint32) int {
+	if objSize <= 0 {
+		return 0
+	}
+
+	maxInt := int(^uint(0) >> 1)
+	maxSize := uint64(objSize) + uint64(objSize)*uint64(acceptedDelta)/100
+	if maxSize > uint64(maxInt) {
+		return maxInt
+	}
+
+	return int(maxSize)
 }
 
 // IsInterfaceNil returns true if there is no value under the interface or

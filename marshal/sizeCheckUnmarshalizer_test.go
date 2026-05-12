@@ -1,6 +1,7 @@
 package marshal
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -97,6 +98,12 @@ func TestSizeUnmarshlizer_MU(t *testing.T) {
 	err = m.Unmarshal(&o2, bytes)
 	assert.Nil(t, err)
 	assert.Equal(t, o, o2)
+}
+
+func TestCheckedAcceptedMaxSize_ShouldNotOverflow(t *testing.T) {
+	assert.Equal(t, 0, checkedAcceptedMaxSize(0, math.MaxUint32))
+	assert.Equal(t, int(^uint(0)>>1), checkedAcceptedMaxSize(int(^uint(0)>>1), math.MaxUint32))
+	assert.Equal(t, 120, checkedAcceptedMaxSize(100, 20))
 }
 
 func BenchmarkSizeCheck_Disabled(b *testing.B) {

@@ -60,3 +60,14 @@ func TestConcurrentSafeIntRandomizer_IntnShouldWork(t *testing.T) {
 	assert.True(t, res >= 0, fmt.Sprintf("0 comparison, generated %d, max %d", res, maxValue))
 	assert.True(t, res < maxValue, fmt.Sprintf("max comparison, generated %d, max %d", res, maxValue))
 }
+
+func TestConcurrentSafeIntRandomizer_IntnWithErrorShouldWork(t *testing.T) {
+	t.Parallel()
+
+	csir := &ConcurrentSafeIntRandomizer{}
+	res, err := csir.IntnWithError(70)
+
+	assert.Nil(t, err)
+	assert.True(t, res >= 0)
+	assert.True(t, res < 70)
+}
