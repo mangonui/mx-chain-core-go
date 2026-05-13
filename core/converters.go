@@ -91,13 +91,22 @@ func GetShardIDString(shardID uint32) string {
 	return fmt.Sprintf("%d", shardID)
 }
 
-// ConvertShardIDToUint32 converts shard id from string to uint32
+// ConvertShardIDToUint32 converts shard id from string to uint32.
+//
+// ISSUE-044: previously parsed via ParseInt (signed) and cast to
+// uint32, which silently wrapped `"-1"` to 4294967295 (and
+// MetachainShardId-equivalent values like 4294967294 to other valid
+// shards). Now uses ParseUint, which rejects the leading '-' at the
+// parser level and returns a clear error. Behavior change visible only
+// to callers that were passing negative strings — those callers were
+// already feeding a corrupt value into the rest of the system, so
+// failing them is the strictly safer outcome.
 func ConvertShardIDToUint32(shardIDStr string) (uint32, error) {
 	if shardIDStr == "metachain" {
 		return MetachainShardId, nil
 	}
 
-	shardID, err := strconv.ParseInt(shardIDStr, 10, 64)
+	shardID, err := strconv.ParseUint(shardIDStr, 10, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -168,8 +177,21 @@ func ConvertToEvenHex(value int) string {
 	return str
 }
 
-// ConvertToEvenHexBigInt converts the provided value in a hex string, even number of characters
+// ConvertToEvenHexBigInt converts the provided value in a hex string, even number of characters.
+//
+// ISSUE-048: nil-safe. Production callers in
+// genesis/process/intermediate/standardDelegationProcessor.go pre-check
+// against nil today, but the helper itself was a footgun: any future
+// caller that forgot the pre-check would crash with a nil-pointer
+// dereference on `value.Text(16)`. Returning "0" for nil is the
+// sentinel the existing callers would have produced anyway after their
+// pre-check (a nil big.Int conceptually represents zero), so the
+// behaviour change is invisible to current callers and removes the
+// failure mode for future ones.
 func ConvertToEvenHexBigInt(value *big.Int) string {
+	if value == nil {
+		return "00"
+	}
 	str := value.Text(16)
 	if len(str)%2 != 0 {
 		str = "0" + str

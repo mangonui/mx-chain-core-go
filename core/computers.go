@@ -122,14 +122,32 @@ func GetApproximatePercentageOfValue(value *big.Int, percentage float64) *big.In
 	return result
 }
 
-// GetIntTrimmedPercentageOfValue returns the exact percentage of value, that fits into the integer (with loss of division remainder)
+// GetIntTrimmedPercentageOfValue returns the exact percentage of value,
+// that fits into the integer (with loss of division remainder).
+//
+// ISSUE-047: previously discarded the ok-bool from both SetString
+// calls. If the formatted percentage was non-numeric (e.g. "NaN" /
+// "+Inf" — caller fed math.NaN to FormatFloat), SetString returned
+// nil and the next line `x.Mul(x, concatBigInt)` panicked on a nil
+// big.Int. The upstream isPercentageInvalid check now rejects NaN/Inf
+// at the boundary (rewardsConfigHandler.go), but defence-in-depth
+// here: on parse failure return zero rather than panic. Returning
+// zero is the strictly safer "no rewards computed" semantic — it
+// can't mint funds out of bad input, and the bad input itself should
+// already have been caught upstream by isPercentageInvalid.
 func GetIntTrimmedPercentageOfValue(value *big.Int, percentage float64) *big.Int {
 	x := big.NewInt(0).Set(value)
 	percentageString := strconv.FormatFloat(percentage, 'f', -1, 64)
 	exp, fra := splitExponentFraction(percentageString)
 	concatExpFra := exp + fra
-	concatBigInt, _ := big.NewInt(0).SetString(concatExpFra, 10)
-	intMultiplier, _ := big.NewInt(0).SetString("1"+strings.Repeat("0", len(fra)), 10)
+	concatBigInt, ok := big.NewInt(0).SetString(concatExpFra, 10)
+	if !ok {
+		return big.NewInt(0)
+	}
+	intMultiplier, ok := big.NewInt(0).SetString("1"+strings.Repeat("0", len(fra)), 10)
+	if !ok {
+		return big.NewInt(0)
+	}
 	x.Mul(x, concatBigInt)
 	x.Div(x, intMultiplier)
 	return x

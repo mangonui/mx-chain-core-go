@@ -17,6 +17,17 @@ import (
 
 const pemPkHeader = "PRIVATE KEY for "
 
+// MaxTomlMapFileSize bounds how much LoadTomlFileToMap is willing to
+// allocate from disk. ISSUE-046: previously the function did
+// `make([]byte, fileinfo.Size())` with no cap, so a malicious or
+// corrupted config (toml/gas-schedule/...) could request gigabytes of
+// allocation and OOM the process at startup. 16 MiB is generous
+// enough for every legitimate config file in this codebase (gas
+// schedules, node configs, p2p configs are all well under 1 MB) and
+// restrictive enough to make accidental or hostile oversize obvious
+// at config-load time.
+const MaxTomlMapFileSize = 16 * 1024 * 1024
+
 // ArgCreateFileArgument will hold the arguments for a new file creation method call
 type ArgCreateFileArgument struct {
 	Directory     string
@@ -81,10 +92,20 @@ func LoadTomlFileToMap(relativePath string) (map[string]interface{}, error) {
 		return nil, err
 	}
 
+	// ISSUE-046: bound the allocation. Reject the read up-front if the
+	// file size exceeds MaxTomlMapFileSize so callers see a clear
+	// "config too large" error rather than running out of memory at
+	// `make([]byte, filesize)`.
 	filesize := fileinfo.Size()
-	buffer := make([]byte, filesize)
+	if filesize < 0 || filesize > MaxTomlMapFileSize {
+		return nil, fmt.Errorf("toml file %q size %d exceeds the maximum allowed %d bytes",
+			relativePath, filesize, MaxTomlMapFileSize)
+	}
 
-	_, err = f.Read(buffer)
+	// Use io.ReadAll on an io.LimitReader as a defence-in-depth against
+	// the file growing between Stat and Read (e.g. via concurrent log
+	// rotation if someone misuses this on a non-config file).
+	buffer, err := io.ReadAll(io.LimitReader(f, MaxTomlMapFileSize))
 	if err != nil {
 		return nil, err
 	}
