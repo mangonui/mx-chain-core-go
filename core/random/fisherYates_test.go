@@ -13,8 +13,9 @@ func TestFisherYatesShuffle_EmptyShouldReturnEmpty(t *testing.T) {
 	indexes := make([]int, 0)
 	randomizer := &mock.IntRandomizerStub{}
 
-	resultIndexes := FisherYatesShuffle(indexes, randomizer)
+	resultIndexes, err := FisherYatesShuffle(indexes, randomizer)
 
+	assert.NoError(t, err)
 	assert.Empty(t, resultIndexes)
 }
 
@@ -26,8 +27,9 @@ func TestFisherYatesShuffle_OneElementShouldReturnTheSame(t *testing.T) {
 		},
 	}
 
-	resultIndexes := FisherYatesShuffle(indexes, randomizer)
+	resultIndexes, err := FisherYatesShuffle(indexes, randomizer)
 
+	assert.NoError(t, err)
 	assert.Equal(t, indexes, resultIndexes)
 }
 
@@ -45,8 +47,9 @@ func TestFisherYatesShuffle_ShouldWork(t *testing.T) {
 	//i = 2: 3, 2, 4, 5, 1 (swap 3 <-> 4)
 	//i = 1: 2, 3, 4, 5, 1 (swap 3 <-> 2)
 
-	resultIndexes := FisherYatesShuffle(indexes, randomizer)
+	resultIndexes, err := FisherYatesShuffle(indexes, randomizer)
 	expectedResult := []int{2, 3, 4, 5, 1}
 
+	assert.NoError(t, err)
 	assert.Equal(t, expectedResult, resultIndexes)
 }

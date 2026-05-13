@@ -22,7 +22,7 @@ func TestConcurrentSafeIntRandomizer_IntnConcurrent(t *testing.T) {
 	for i := 0; i < maxIterations; i++ {
 		go func(idx int) {
 			for {
-				_ = csir.Intn(idx + 1)
+				_, _ = csir.Intn(idx + 1)
 				time.Sleep(time.Millisecond)
 			}
 		}(i)
@@ -38,13 +38,17 @@ func TestConcurrentSafeIntRandomizer_IntnInvalidShouldReturnZero(t *testing.T) {
 	csir := &ConcurrentSafeIntRandomizer{}
 	assert.False(t, csir.IsInterfaceNil())
 
-	res := csir.Intn(-1)
+	res, err := csir.Intn(-1)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, res)
 
-	res = csir.Intn(0)
+	res, err = csir.Intn(0)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, res)
 
-	res = csir.Intn(1)
+	// n=1 returns 0 trivially because crypto/rand.Int(1) = 0.
+	res, err = csir.Intn(1)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, res)
 }
 
@@ -55,19 +59,9 @@ func TestConcurrentSafeIntRandomizer_IntnShouldWork(t *testing.T) {
 	assert.False(t, csir.IsInterfaceNil())
 
 	maxValue := 70
-	res := csir.Intn(maxValue)
+	res, err := csir.Intn(maxValue)
 
+	assert.NoError(t, err)
 	assert.True(t, res >= 0, fmt.Sprintf("0 comparison, generated %d, max %d", res, maxValue))
 	assert.True(t, res < maxValue, fmt.Sprintf("max comparison, generated %d, max %d", res, maxValue))
-}
-
-func TestConcurrentSafeIntRandomizer_IntnWithErrorShouldWork(t *testing.T) {
-	t.Parallel()
-
-	csir := &ConcurrentSafeIntRandomizer{}
-	res, err := csir.IntnWithError(70)
-
-	assert.Nil(t, err)
-	assert.True(t, res >= 0)
-	assert.True(t, res < 70)
 }

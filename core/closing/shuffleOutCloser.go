@@ -69,7 +69,21 @@ func (soc *shuffleOutCloser) EndOfProcessingHandler(event endProcess.ArgEndProce
 func (soc *shuffleOutCloser) writeOnChanDelayed(event endProcess.ArgEndProcess) {
 	delta := soc.maxWaitDuration - soc.minWaitDuration
 
-	randDurationBeforeStop := soc.randomizer.Intn(int(delta))
+	// ISSUE-045: on entropy failure, fall back to the deterministic
+	// midpoint of the wait window. The shutdown-delay path is not
+	// security-critical (it just spreads node-restart timing to avoid
+	// thundering-herd reconnects); a deterministic wait is correct
+	// behaviour, just less effective at the herd-spreading goal.
+	// Logging the error makes the deployment-side cause visible
+	// (entropy starvation in the container) without crashing the
+	// shutdown path.
+	randDurationBeforeStop, err := soc.randomizer.Intn(int(delta))
+	if err != nil {
+		soc.log.Warn("shuffleOutCloser: entropy failure on shutdown-delay randomization, "+
+			"falling back to deterministic midpoint",
+			"error", err)
+		randDurationBeforeStop = int(delta) / 2
+	}
 	timeToWait := soc.minWaitDuration + time.Duration(randDurationBeforeStop)
 
 	soc.log.Info("the application will stop in",
