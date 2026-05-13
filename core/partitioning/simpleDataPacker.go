@@ -45,7 +45,18 @@ func (sdp *SimpleDataPacker) PackDataInChunks(data [][]byte, limit int) ([][]byt
 		isBuffToLarge := lenChunk+len(element) >= limit
 		chunkNotEmpty := len(currentChunk) > 0
 		if isBuffToLarge && chunkNotEmpty {
-			marshaledChunk, _ := sdp.marshalizer.Marshal(&batch.Batch{Data: currentChunk})
+			// ISSUE-043: surface marshal errors on intermediate chunks
+			// rather than silently appending a zero-length / partial
+			// `marshaledChunk` to the output. The final-flush path below
+			// already returns the error correctly; making the intermediate
+			// path symmetric closes a P2P-data-integrity silent-loss bug
+			// where a marshal failure mid-packing would produce a buffer
+			// list whose i-th entry is empty bytes and whose subsequent
+			// entries are correct — undetectable by the caller.
+			marshaledChunk, err := sdp.marshalizer.Marshal(&batch.Batch{Data: currentChunk})
+			if err != nil {
+				return nil, err
+			}
 			returningBuff = append(returningBuff, marshaledChunk)
 			currentChunk = make([][]byte, 0)
 			lenChunk = 0
