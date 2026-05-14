@@ -87,25 +87,7 @@ func LoadTomlFileToMap(relativePath string) (map[string]interface{}, error) {
 		_ = f.Close()
 	}()
 
-	fileinfo, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	// ISSUE-046: bound the allocation. Reject the read up-front if the
-	// file size exceeds MaxTomlMapFileSize so callers see a clear
-	// "config too large" error rather than running out of memory at
-	// `make([]byte, filesize)`.
-	filesize := fileinfo.Size()
-	if filesize < 0 || filesize > MaxTomlMapFileSize {
-		return nil, fmt.Errorf("toml file %q size %d exceeds the maximum allowed %d bytes",
-			relativePath, filesize, MaxTomlMapFileSize)
-	}
-
-	// Use io.ReadAll on an io.LimitReader as a defence-in-depth against
-	// the file growing between Stat and Read (e.g. via concurrent log
-	// rotation if someone misuses this on a non-config file).
-	buffer, err := io.ReadAll(io.LimitReader(f, MaxTomlMapFileSize))
+	buffer, err := readBoundedTomlMapFile(relativePath, f)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +100,39 @@ func LoadTomlFileToMap(relativePath string) (map[string]interface{}, error) {
 	loadedMap := loadedTree.ToMap()
 
 	return loadedMap, nil
+}
+
+func readBoundedTomlMapFile(relativePath string, f *os.File) ([]byte, error) {
+	fileinfo, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	return readBoundedTomlMap(relativePath, fileinfo.Size(), f)
+}
+
+func readBoundedTomlMap(relativePath string, fileSize int64, reader io.Reader) ([]byte, error) {
+	// ISSUE-046: bound the allocation. Reject the read up-front if the
+	// file size exceeds MaxTomlMapFileSize so callers see a clear
+	// "config too large" error rather than running out of memory at
+	// `make([]byte, filesize)`.
+	if fileSize < 0 || fileSize > MaxTomlMapFileSize {
+		return nil, fmt.Errorf("toml file %q size %d exceeds the maximum allowed %d bytes",
+			relativePath, fileSize, MaxTomlMapFileSize)
+	}
+
+	// Read one byte past the configured limit so a file that grows after
+	// Stat is rejected instead of silently truncated before TOML parsing.
+	buffer, err := io.ReadAll(io.LimitReader(reader, MaxTomlMapFileSize+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(buffer) > MaxTomlMapFileSize {
+		return nil, fmt.Errorf("toml file %q grew beyond the maximum allowed %d bytes while reading",
+			relativePath, MaxTomlMapFileSize)
+	}
+
+	return buffer, nil
 }
 
 // LoadJsonFile method to open and decode json file
